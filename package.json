@@ -1,0 +1,22 @@
+{
+  "name": "openrouter-menubar",
+  "version": "1.0.0",
+  "description": "OpenRouter balance menu bar app",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --mac"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.0.0"
+  },
+  "build": {
+    "appId": "com.openrouter.menubar",
+    "productName": "OpenRouter Balance",
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.developer-tools"
+    }
+  }
+}
