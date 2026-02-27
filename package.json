@@ -4,7 +4,7 @@
   "description": "OpenRouter balance menu bar app",
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
+    "start": "env -u ELECTRON_RUN_AS_NODE electron .",
     "build": "electron-builder --mac"
   },
   "devDependencies": {

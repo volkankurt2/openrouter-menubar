@@ -1,4 +1,5 @@
 const { app, BrowserWindow, Tray, Menu, nativeImage, shell, ipcMain } = require('electron');
+const { exec } = require('child_process');
 const path = require('path');
 const https = require('https');
 const os = require('os');
@@ -289,84 +290,7 @@ async function doRefresh() {
   }
 }
 
-ipcMain.on('refresh', doRefresh);
-ipcMain.on('open-link', (_, url) => shell.openExternal(url));
-
-ipcMain.handle('get-config', () => {
-  let claudeMode = '';
-  try {
-    const modePath = path.join(os.homedir(), '.claude_mode');
-    if (fs.existsSync(modePath)) {
-      claudeMode = fs.readFileSync(modePath, 'utf8').trim();
-    }
-  } catch (e) {
-    // ignore
-  }
-
-  return {
-    apiKeys: getApiKeys(),
-    activeKeyIndex: getActiveKeyIndex(),
-    failoverThreshold: getFailoverThreshold(),
-    autoLaunch: getAutoLaunch(),
-    claudeMode
-  };
-});
-
-ipcMain.on('save-config', (_, { apiKeys, activeKeyIndex, failoverThreshold, autoLaunch }) => {
-  saveConfig({ 
-    openRouterApiKeys: apiKeys,
-    activeKeyIndex: activeKeyIndex || 0,
-    failoverThreshold: failoverThreshold || 0.50,
-    autoLaunch 
-  });
-  
-  applyAutoLaunch(autoLaunch);
-  
-  if (apiKeys && apiKeys.length > 0) {
-    doRefresh();
-  } else {
-    lastData = null;
-    updateTrayTitle(null);
-    if (popupWindow?.isVisible()) {
-      popupWindow.webContents.send('data-update', { data: null, error: 'API_KEY_NOT_SET' });
-    }
-  }
-});
-
-const { exec } = require('child_process');
-
-ipcMain.handle('setup-claude', async (_, { mode, apiKey }) => {
-  return new Promise((resolve, reject) => {
-    const scriptPath = path.join(__dirname, 'switch-claude-script.sh');
-    
-    // First setup the shell files
-    exec(`bash "${scriptPath}" setup`, (error, stdout, stderr) => {
-      if (error) {
-        console.error('Setup error:', error);
-        return reject(error.message || 'Setup failed');
-      }
-
-      // Then execute mode switch
-      let switchCmd = '';
-      if (mode === 'or' || mode === 'openrouter') {
-        const keyToUse = apiKey || getApiKey();
-        if (!keyToUse) return reject('API Key is required for OpenRouter mode');
-        switchCmd = `bash "${scriptPath}" or "${keyToUse}"`;
-      } else {
-        switchCmd = `bash "${scriptPath}" ant`;
-      }
-
-      exec(switchCmd, (err, out, stdErr) => {
-        if (err) {
-          console.error('Switch error:', err);
-          return reject(err.message || 'Switch failed');
-        }
-        resolve({ success: true, message: out });
-      });
-    });
-  });
-});
-
+// ... End of generic imports and functions ...
 
 const gotTheLock = app.requestSingleInstanceLock();
 
@@ -384,6 +308,83 @@ if (!gotTheLock) {
     }
   });
 
+  // Bind IPCs
+  ipcMain.on('refresh', doRefresh);
+  ipcMain.on('open-link', (_, url) => shell.openExternal(url));
+
+  ipcMain.handle('get-config', () => {
+    let claudeMode = '';
+    try {
+      const modePath = path.join(os.homedir(), '.claude_mode');
+      if (fs.existsSync(modePath)) {
+        claudeMode = fs.readFileSync(modePath, 'utf8').trim();
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    return {
+      apiKeys: getApiKeys(),
+      activeKeyIndex: getActiveKeyIndex(),
+      failoverThreshold: getFailoverThreshold(),
+      autoLaunch: getAutoLaunch(),
+      claudeMode
+    };
+  });
+
+  ipcMain.on('save-config', (_, { apiKeys, activeKeyIndex, failoverThreshold, autoLaunch }) => {
+    saveConfig({ 
+      openRouterApiKeys: apiKeys,
+      activeKeyIndex: activeKeyIndex || 0,
+      failoverThreshold: failoverThreshold || 0.50,
+      autoLaunch 
+    });
+    
+    applyAutoLaunch(autoLaunch);
+    
+    if (apiKeys && apiKeys.length > 0) {
+      doRefresh();
+    } else {
+      lastData = null;
+      updateTrayTitle(null);
+      if (popupWindow?.isVisible()) {
+        popupWindow.webContents.send('data-update', { data: null, error: 'API_KEY_NOT_SET' });
+      }
+    }
+  });
+
+  ipcMain.handle('setup-claude', async (_, { mode, apiKey }) => {
+    return new Promise((resolve, reject) => {
+      const scriptPath = path.join(__dirname, 'switch-claude-script.sh');
+      
+      // First setup the shell files
+      exec(`bash "${scriptPath}" setup`, (error, stdout, stderr) => {
+        if (error) {
+          console.error('Setup error:', error);
+          return reject(error.message || 'Setup failed');
+        }
+
+        // Then execute mode switch
+        let switchCmd = '';
+        if (mode === 'or' || mode === 'openrouter') {
+          const keyToUse = apiKey || getApiKey();
+          if (!keyToUse) return reject('API Key is required for OpenRouter mode');
+          switchCmd = `bash "${scriptPath}" or "${keyToUse}"`;
+        } else {
+          switchCmd = `bash "${scriptPath}" ant`;
+        }
+
+        exec(switchCmd, (err, out, stdErr) => {
+          if (err) {
+            console.error('Switch error:', err);
+            return reject(err.message || 'Switch failed');
+          }
+          resolve({ success: true, message: out });
+        });
+      });
+    });
+  });
+
   app.whenReady().then(() => {
     app.dock?.hide(); // Hide from dock on macOS
     
@@ -395,15 +396,16 @@ if (!gotTheLock) {
     doRefresh();
     refreshInterval = setInterval(doRefresh, REFRESH_MS);
   });
+
+  app.on('before-quit', () => {
+    if (refreshInterval) clearInterval(refreshInterval);
+    if (tray) {
+      tray.destroy();
+      tray = null;
+    }
+  });
+
+  app.on('window-all-closed', (e) => e.preventDefault());
 }
 
-app.on('before-quit', () => {
-  if (refreshInterval) clearInterval(refreshInterval);
-  if (tray) {
-    tray.destroy();
-    tray = null;
-  }
-});
-
-app.on('window-all-closed', (e) => e.preventDefault());
 
