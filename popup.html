@@ -480,6 +480,18 @@
     font-size: 11px;
     outline: none;
     transition: border-color 0.2s;
+    resize: none;
+  }
+  
+  .text-input[type="number"] {
+    width: 80px;
+    -moz-appearance: textfield;
+  }
+
+  .text-input[type=number]::-webkit-inner-spin-button, 
+  .text-input[type=number]::-webkit-outer-spin-button { 
+    -webkit-appearance: none; 
+    margin: 0; 
   }
 
   .text-input:focus {
@@ -634,11 +646,18 @@
   <!-- Settings -->
   <div class="settings-state hidden fade-in" id="settings-state">
     <div class="settings-group">
-      <div class="settings-label">OpenRouter API Key</div>
-      <div class="settings-desc">Enter your API key below. Needs read access for limits and usage data.</div>
-      <input type="password" id="api-key-input" class="text-input" placeholder="sk-or-v1-..." />
+      <div class="settings-label">OpenRouter API Keys</div>
+      <div class="settings-desc">Enter keys line by line. Top key will be default.</div>
+      <textarea id="api-key-input" class="text-input" placeholder="sk-or-v1-...\nsk-or-v1-..." rows="3" style="font-size: 10px;"></textarea>
     </div>
-    <div class="settings-group" style="margin-top: 4px;">
+    <div class="settings-group">
+      <div class="switch-row">
+        <div class="switch-label">Auto-failover Threshold ($)</div>
+        <input type="number" id="threshold-input" class="text-input" placeholder="0.50" step="0.10" min="0" />
+      </div>
+      <div class="settings-desc">Switch to next key when balance drops below this amount.</div>
+    </div>
+    <div class="settings-group" style="margin-top: 4px; border-top: 1px solid var(--border); padding-top: 12px;">
       <div class="switch-row">
         <div class="switch-label">Launch at Login</div>
         <label class="switch">
@@ -648,6 +667,18 @@
       </div>
       <div class="settings-desc">Automatically start OpenRouter Balance when you log in to your computer.</div>
     </div>
+    
+    <div class="settings-group" style="margin-top: 4px; border-top: 1px solid var(--border); padding-top: 12px;">
+      <div class="switch-row">
+        <div class="switch-label">Use OpenRouter for Claude Code</div>
+        <label class="switch">
+          <input type="checkbox" id="claude-code-input" onchange="setupClaude(this)">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="settings-desc" id="claude-status-desc">Click toggle to switch Claude CLI mode between Anthropic and OpenRouter. It will add shell hooks automatically.</div>
+    </div>
+
     <div class="settings-group" style="margin-top: 8px;">
       <button class="primary-btn" onclick="saveSettings()">Save Configuration</button>
     </div>
@@ -772,10 +803,21 @@ function showData(data) {
   // Reset
   document.getElementById('reset-text').textContent = (data.limit_reset || 'daily') + ' reset';
 
-  // Key label
+  // Key label (Masked or Name)
   const label = data.label || '—';
   document.getElementById('key-label').textContent = label;
-  document.getElementById('key-name').textContent = label;
+  
+  // Show masked active key
+  let displayKey = label;
+  if (data.key) {
+    const k = data.key;
+    if (k.length > 15) {
+      displayKey = k.substring(0, 10) + '...' + k.substring(k.length - 4);
+    } else {
+      displayKey = k;
+    }
+  }
+  document.getElementById('key-name').textContent = displayKey;
 
   // Stats
   document.getElementById('usage-daily').textContent = fmt(data.usage_daily);
@@ -802,8 +844,12 @@ async function toggleSettings() {
     
     // Load current config
     const config = await ipcRenderer.invoke('get-config');
-    document.getElementById('api-key-input').value = config.apiKey || '';
+    const keys = config.apiKeys || [];
+    document.getElementById('api-key-input').value = keys.join('\n');
+    document.getElementById('threshold-input').value = typeof config.failoverThreshold === 'number' ? config.failoverThreshold : 0.50;
+    
     document.getElementById('auto-launch-input').checked = config.autoLaunch || false;
+    document.getElementById('claude-code-input').checked = config.claudeMode === 'openrouter';
     document.getElementById('api-key-input').focus();
   } else {
     // Close settings
@@ -814,10 +860,14 @@ async function toggleSettings() {
 }
 
 function saveSettings() {
-  const newKey = document.getElementById('api-key-input').value.trim();
+  const keysStr = document.getElementById('api-key-input').value;
+  const apiKeys = keysStr.split('\n').map(k => k.trim()).filter(k => k.length > 0);
+  const failoverThreshold = parseFloat(document.getElementById('threshold-input').value) || 0.50;
+  
   const autoLaunch = document.getElementById('auto-launch-input').checked;
   
-  ipcRenderer.send('save-config', { apiKey: newKey, autoLaunch });
+  // Notice we are passing back the updated config shape now
+  ipcRenderer.send('save-config', { apiKeys, activeKeyIndex: 0, failoverThreshold, autoLaunch });
   document.getElementById('settings-btn').style.color = 'var(--text-muted)';
   showLoading();
 }
@@ -843,6 +893,43 @@ function doRefresh() {
 
 function openExternal() {
   ipcRenderer.send('open-link', 'https://openrouter.ai/settings/keys');
+}
+
+async function setupClaude(checkbox) {
+  const desc = document.getElementById('claude-status-desc');
+  const originalText = desc.textContent;
+  const isOR = checkbox.checked;
+  
+  desc.textContent = "Applying configuration...";
+  desc.style.color = "var(--yellow)";
+  
+  try {
+    const keysStr = document.getElementById('api-key-input').value;
+    const apiKeys = keysStr.split('\n').map(k => k.trim()).filter(k => k.length > 0);
+    const activeKey = apiKeys[0] || '';
+    
+    if (isOR && !activeKey) {
+      throw new Error("Please enter and save an API key first.");
+    }
+    
+    await ipcRenderer.invoke('setup-claude', { 
+      mode: isOR ? 'or' : 'ant',
+      apiKey: activeKey
+    });
+    
+    desc.textContent = "Success! Please restart your terminal to apply changes.";
+    desc.style.color = "var(--green)";
+  } catch (err) {
+    console.error(err);
+    checkbox.checked = !isOR; // Revert toggle
+    desc.textContent = "Error: " + (err.message || err);
+    desc.style.color = "var(--red)";
+  }
+  
+  setTimeout(() => {
+    desc.textContent = "Click toggle to switch Claude CLI mode between Anthropic and OpenRouter. It will add shell hooks automatically.";
+    desc.style.color = "var(--text-muted)";
+  }, 4000);
 }
 
 // Start loading

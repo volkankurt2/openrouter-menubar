@@ -36,12 +36,37 @@ function saveConfig(config) {
   }
 }
 
-function getApiKey() {
+function getApiKeys() {
   const config = getConfig();
-  if (config.openRouterApiKey) {
-    return config.openRouterApiKey;
+  let keys = [];
+  if (Array.isArray(config.openRouterApiKeys)) {
+    keys = config.openRouterApiKeys;
+  } else if (config.openRouterApiKey) {
+    // Legacy fallback
+    keys = [config.openRouterApiKey];
+  } else if (process.env.OPENROUTER_API_KEY) {
+    keys = [process.env.OPENROUTER_API_KEY];
   }
-  return process.env.OPENROUTER_API_KEY || '';
+  return keys.filter(k => k && k.trim().length > 0);
+}
+
+function getActiveKeyIndex() {
+  const config = getConfig();
+  return typeof config.activeKeyIndex === 'number' ? config.activeKeyIndex : 0;
+}
+
+function getFailoverThreshold() {
+  const config = getConfig();
+  return typeof config.failoverThreshold === 'number' ? config.failoverThreshold : 0.50; // default 50 cents
+}
+
+function getApiKey() {
+  const keys = getApiKeys();
+  const idx = getActiveKeyIndex();
+  if (keys.length > 0) {
+    return keys[idx] || keys[0];
+  }
+  return '';
 }
 
 function getAutoLaunch() {
@@ -59,9 +84,9 @@ function applyAutoLaunch(enabled) {
   }
 }
 
-function fetchBalance() {
+function fetchBalance(keyToUse) {
   return new Promise((resolve, reject) => {
-    const key = getApiKey();
+    const key = keyToUse || getApiKey();
     if (!key) {
       reject(new Error('API_KEY_NOT_SET'));
       return;
@@ -84,7 +109,7 @@ function fetchBalance() {
         try {
           const parsed = JSON.parse(body);
           if (parsed.data) {
-            resolve(parsed.data);
+            resolve({ ...parsed.data, key }); // inject key so we know which one fetched
           } else {
             reject(new Error('Invalid API response'));
           }
@@ -196,9 +221,60 @@ function togglePopup() {
   }
 }
 
+const { Notification } = require('electron');
+
+async function triggerFailover(currentIndex, keys) {
+  // Find next key
+  const nextIndex = (currentIndex + 1) % keys.length;
+  if (nextIndex === currentIndex) return false; // same key, no others
+
+  // Save config explicitly with new index
+  try {
+    const configPath = getConfigPath();
+    const existing = getConfig();
+    fs.writeFileSync(configPath, JSON.stringify({ ...existing, activeKeyIndex: nextIndex }, null, 2));
+    
+    // Switch the environment if claude mode is active
+    let claudeMode = '';
+    const modePath = path.join(os.homedir(), '.claude_mode');
+    if (fs.existsSync(modePath)) {
+      claudeMode = fs.readFileSync(modePath, 'utf8').trim();
+    }
+    
+    if (claudeMode === 'openrouter') {
+      const scriptPath = path.join(__dirname, 'switch-claude-script.sh');
+      exec(`bash "${scriptPath}" or "${keys[nextIndex]}"`);
+    }
+
+    // Send notification
+    new Notification({
+      title: 'OpenRouter Balance Emtpy',
+      body: 'Switched to backup API Key automatically.',
+      silent: false
+    }).show();
+
+    return true; // Successfully triggered
+  } catch (err) {
+    console.error('Failed failover:', err);
+    return false;
+  }
+}
+
 async function doRefresh() {
   try {
-    const data = await fetchBalance();
+    let data = await fetchBalance();
+    const threshold = getFailoverThreshold();
+    const keys = getApiKeys();
+    
+    if (data.limit_remaining !== undefined && data.limit_remaining < threshold && keys.length > 1) {
+      const currentIndex = getActiveKeyIndex();
+      const failoverDone = await triggerFailover(currentIndex, keys);
+      if (failoverDone) {
+        // Fetch again with the new key right away
+        data = await fetchBalance();
+      }
+    }
+    
     lastData = data;
     updateTrayTitle(data);
     if (popupWindow?.isVisible()) {
@@ -217,17 +293,36 @@ ipcMain.on('refresh', doRefresh);
 ipcMain.on('open-link', (_, url) => shell.openExternal(url));
 
 ipcMain.handle('get-config', () => {
+  let claudeMode = '';
+  try {
+    const modePath = path.join(os.homedir(), '.claude_mode');
+    if (fs.existsSync(modePath)) {
+      claudeMode = fs.readFileSync(modePath, 'utf8').trim();
+    }
+  } catch (e) {
+    // ignore
+  }
+
   return {
-    apiKey: getApiKey(),
-    autoLaunch: getAutoLaunch()
+    apiKeys: getApiKeys(),
+    activeKeyIndex: getActiveKeyIndex(),
+    failoverThreshold: getFailoverThreshold(),
+    autoLaunch: getAutoLaunch(),
+    claudeMode
   };
 });
 
-ipcMain.on('save-config', (_, { apiKey, autoLaunch }) => {
-  saveConfig({ openRouterApiKey: apiKey, autoLaunch });
+ipcMain.on('save-config', (_, { apiKeys, activeKeyIndex, failoverThreshold, autoLaunch }) => {
+  saveConfig({ 
+    openRouterApiKeys: apiKeys,
+    activeKeyIndex: activeKeyIndex || 0,
+    failoverThreshold: failoverThreshold || 0.50,
+    autoLaunch 
+  });
+  
   applyAutoLaunch(autoLaunch);
   
-  if (apiKey) {
+  if (apiKeys && apiKeys.length > 0) {
     doRefresh();
   } else {
     lastData = null;
@@ -238,16 +333,77 @@ ipcMain.on('save-config', (_, { apiKey, autoLaunch }) => {
   }
 });
 
-app.whenReady().then(() => {
-  app.dock?.hide(); // Hide from dock on macOS
-  
-  // Apply auto-launch setting on startup
-  applyAutoLaunch(getAutoLaunch());
-  
-  createTray();
-  createPopupWindow();
-  doRefresh();
-  refreshInterval = setInterval(doRefresh, REFRESH_MS);
+const { exec } = require('child_process');
+
+ipcMain.handle('setup-claude', async (_, { mode, apiKey }) => {
+  return new Promise((resolve, reject) => {
+    const scriptPath = path.join(__dirname, 'switch-claude-script.sh');
+    
+    // First setup the shell files
+    exec(`bash "${scriptPath}" setup`, (error, stdout, stderr) => {
+      if (error) {
+        console.error('Setup error:', error);
+        return reject(error.message || 'Setup failed');
+      }
+
+      // Then execute mode switch
+      let switchCmd = '';
+      if (mode === 'or' || mode === 'openrouter') {
+        const keyToUse = apiKey || getApiKey();
+        if (!keyToUse) return reject('API Key is required for OpenRouter mode');
+        switchCmd = `bash "${scriptPath}" or "${keyToUse}"`;
+      } else {
+        switchCmd = `bash "${scriptPath}" ant`;
+      }
+
+      exec(switchCmd, (err, out, stdErr) => {
+        if (err) {
+          console.error('Switch error:', err);
+          return reject(err.message || 'Switch failed');
+        }
+        resolve({ success: true, message: out });
+      });
+    });
+  });
+});
+
+
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    // If the user tries to open a second instance, just show the popup of the existing one
+    if (popupWindow) {
+      if (!popupWindow.isVisible()) {
+        togglePopup();
+      } else {
+        popupWindow.focus();
+      }
+    }
+  });
+
+  app.whenReady().then(() => {
+    app.dock?.hide(); // Hide from dock on macOS
+    
+    // Apply auto-launch setting on startup
+    applyAutoLaunch(getAutoLaunch());
+    
+    createTray();
+    createPopupWindow();
+    doRefresh();
+    refreshInterval = setInterval(doRefresh, REFRESH_MS);
+  });
+}
+
+app.on('before-quit', () => {
+  if (refreshInterval) clearInterval(refreshInterval);
+  if (tray) {
+    tray.destroy();
+    tray = null;
+  }
 });
 
 app.on('window-all-closed', (e) => e.preventDefault());
+
