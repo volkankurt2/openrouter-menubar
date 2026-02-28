@@ -56,7 +56,7 @@ Clicking opens a beautifully designed popup with a dark glassmorphism theme:
 You can easily install the pre-built application using Homebrew:
 
 ```bash
-brew install --cask https://raw.githubusercontent.com/volkankurt2/openrouter-menubar/main/openrouter-menubar.rb
+brew install volkankurt2/tap/openrouter-menubar
 ```
 
 ### Manual Development Setup
