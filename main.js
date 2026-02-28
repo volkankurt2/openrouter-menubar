@@ -171,7 +171,7 @@ function createTray() {
 function createPopupWindow() {
   popupWindow = new BrowserWindow({
     width: 340,
-    height: 460,
+    height: 500,
     show: false,
     frame: false,
     resizable: false,

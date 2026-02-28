@@ -1,944 +1,1006 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OpenRouter Balance</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap');
-
-  * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    -webkit-font-smoothing: antialiased;
-  }
-
-  :root {
-    --bg: rgba(22, 22, 28, 0.96);
-    --surface: rgba(35, 35, 45, 0.8);
-    --surface2: rgba(45, 45, 58, 0.6);
-    --border: rgba(255, 255, 255, 0.08);
-    --text: #e8e8f0;
-    --text-muted: #7a7a8e;
-    --accent: #6c63ff;
-    --accent-glow: rgba(108, 99, 255, 0.3);
-    --green: #34d399;
-    --yellow: #fbbf24;
-    --red: #f87171;
-    --green-dim: rgba(52, 211, 153, 0.15);
-    --yellow-dim: rgba(251, 191, 36, 0.15);
-    --red-dim: rgba(248, 113, 113, 0.15);
-  }
-
-  html, body {
-    width: 340px;
-    height: 460px;
-    background: transparent;
-    font-family: 'Inter', sans-serif;
-    color: var(--text);
-    overflow: hidden;
-    border-radius: 14px;
-  }
-
-  .app {
-    width: 340px;
-    height: 460px;
-    background: var(--bg);
-    border-radius: 14px;
-    border: 1px solid var(--border);
-    backdrop-filter: blur(40px) saturate(180%);
-    -webkit-backdrop-filter: blur(40px) saturate(180%);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 
-      0 20px 60px rgba(0,0,0,0.6),
-      0 0 0 0.5px rgba(255,255,255,0.1) inset,
-      0 1px 0 rgba(255,255,255,0.15) inset;
-  }
-
-  /* Header */
-  .header {
-    padding: 16px 18px 14px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: rgba(255,255,255,0.02);
-    -webkit-app-region: drag;
-  }
-
-  .header-left {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .logo {
-    width: 28px;
-    height: 28px;
-    background: linear-gradient(135deg, #6c63ff, #a855f7);
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-    font-weight: 700;
-    color: white;
-    font-family: 'JetBrains Mono', monospace;
-    box-shadow: 0 0 12px var(--accent-glow);
-    flex-shrink: 0;
-  }
-
-  .header-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text);
-    letter-spacing: -0.01em;
-  }
-
-  .header-sub {
-    font-size: 10px;
-    color: var(--text-muted);
-    margin-top: 1px;
-    font-family: 'JetBrains Mono', monospace;
-  }
-
-  .header-actions {
-    display: flex;
-    gap: 6px;
-    -webkit-app-region: no-drag;
-  }
-
-  .icon-btn {
-    width: 26px;
-    height: 26px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-muted);
-    transition: all 0.15s;
-    font-size: 11px;
-  }
-
-  .icon-btn:hover {
-    background: var(--surface2);
-    color: var(--text);
-    border-color: rgba(255,255,255,0.15);
-  }
-
-  .icon-btn:active {
-    transform: scale(0.93);
-  }
-
-  .icon-btn.spinning svg {
-    animation: spin 1s linear infinite;
-  }
-
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
-
-  /* Content */
-  .content {
-    flex: 1;
-    overflow-y: auto;
-    padding: 14px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .content::-webkit-scrollbar { width: 3px; }
-  .content::-webkit-scrollbar-track { background: transparent; }
-  .content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
-
-  /* Balance hero card */
-  .hero-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 16px;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .hero-card::before {
-    content: '';
-    position: absolute;
-    top: -30px;
-    right: -30px;
-    width: 100px;
-    height: 100px;
-    background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
-    pointer-events: none;
-  }
-
-  .hero-label {
-    font-size: 10px;
-    font-weight: 500;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 6px;
-  }
-
-  .hero-value {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 32px;
-    font-weight: 700;
-    color: var(--text);
-    line-height: 1;
-    margin-bottom: 12px;
-    transition: color 0.3s;
-  }
-
-  .hero-value.green { color: var(--green); text-shadow: 0 0 20px rgba(52,211,153,0.3); }
-  .hero-value.yellow { color: var(--yellow); text-shadow: 0 0 20px rgba(251,191,36,0.3); }
-  .hero-value.red { color: var(--red); text-shadow: 0 0 20px rgba(248,113,113,0.3); }
-
-  /* Progress bar */
-  .progress-wrap {
-    margin-top: 4px;
-  }
-
-  .progress-meta {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 6px;
-  }
-
-  .progress-meta span {
-    font-size: 10px;
-    font-family: 'JetBrains Mono', monospace;
-    color: var(--text-muted);
-  }
-
-  .progress-bar {
-    height: 5px;
-    background: rgba(255,255,255,0.06);
-    border-radius: 3px;
-    overflow: hidden;
-  }
-
-  .progress-fill {
-    height: 100%;
-    border-radius: 3px;
-    background: var(--green);
-    transition: width 0.6s ease, background 0.3s;
-  }
-
-  .progress-fill.yellow { background: var(--yellow); }
-  .progress-fill.red { background: var(--red); }
-
-  /* Reset badge */
-  .reset-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    background: rgba(108,99,255,0.15);
-    border: 1px solid rgba(108,99,255,0.25);
-    border-radius: 5px;
-    padding: 3px 8px;
-    font-size: 10px;
-    color: #a78bfa;
-    font-family: 'JetBrains Mono', monospace;
-    margin-top: 8px;
-  }
-
-  /* Stats grid */
-  .stats-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-  }
-
-  .stat-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 12px;
-    transition: border-color 0.2s;
-  }
-
-  .stat-card:hover {
-    border-color: rgba(255,255,255,0.14);
-  }
-
-  .stat-label {
-    font-size: 9.5px;
-    font-weight: 500;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    margin-bottom: 5px;
-  }
-
-  .stat-value {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--text);
-  }
-
-  .stat-value.accent { color: var(--accent); }
-
-  /* Key info */
-  .key-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 12px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .key-icon {
-    width: 28px;
-    height: 28px;
-    background: rgba(108,99,255,0.1);
-    border-radius: 7px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    font-size: 13px;
-  }
-
-  .key-info {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .key-label {
-    font-size: 10px;
-    color: var(--text-muted);
-    margin-bottom: 2px;
-  }
-
-  .key-value {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    color: var(--text);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  /* Refresh meta */
-  .refresh-meta {
-    text-align: center;
-    font-size: 10px;
-    color: var(--text-muted);
-    font-family: 'JetBrains Mono', monospace;
-    padding: 2px 0 6px;
-  }
-
-  /* Footer */
-  .footer {
-    padding: 10px 16px 12px;
-    border-top: 1px solid var(--border);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .footer-link {
-    font-size: 11px;
-    color: var(--text-muted);
-    cursor: pointer;
-    text-decoration: none;
-    transition: color 0.15s;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-family: 'JetBrains Mono', monospace;
-  }
-
-  .footer-link:hover { color: var(--accent); }
-
-  .last-updated {
-    font-size: 10px;
-    color: var(--text-muted);
-    font-family: 'JetBrains Mono', monospace;
-  }
-
-  /* Loading */
-  .loading-state {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    padding: 20px;
-  }
-
-  .spinner {
-    width: 32px;
-    height: 32px;
-    border: 2px solid var(--border);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-
-  .loading-text {
-    font-size: 12px;
-    color: var(--text-muted);
-    font-family: 'JetBrains Mono', monospace;
-  }
-
-  /* Error */
-  .error-state {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    padding: 24px;
-    text-align: center;
-  }
-
-  .error-icon { font-size: 32px; }
-
-  .error-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--red);
-  }
-
-  .error-msg {
-    font-size: 11px;
-    color: var(--text-muted);
-    font-family: 'JetBrains Mono', monospace;
-    line-height: 1.5;
-    word-break: break-all;
-  }
-
-  .error-hint {
-    font-size: 10px;
-    color: var(--text-muted);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 10px;
-    line-height: 1.6;
-    text-align: left;
-    width: 100%;
-    font-family: 'JetBrains Mono', monospace;
-  }
-
-  .error-hint code {
-    color: var(--green);
-    display: block;
-    margin-top: 4px;
-  }
-
-  /* Settings */
-  .settings-state {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    padding: 20px 16px;
-    gap: 16px;
-    overflow-y: auto;
-  }
-
-  .settings-state::-webkit-scrollbar { width: 3px; }
-  .settings-state::-webkit-scrollbar-track { background: transparent; }
-  .settings-state::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
-
-  .settings-group {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .settings-label {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text);
-  }
-
-  .settings-desc {
-    font-size: 10px;
-    color: var(--text-muted);
-    line-height: 1.4;
-  }
-
-  .text-input {
-    width: 100%;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 10px 12px;
-    color: var(--text);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    outline: none;
-    transition: border-color 0.2s;
-    resize: none;
-  }
-  
-  .text-input[type="number"] {
-    width: 80px;
-    -moz-appearance: textfield;
-  }
-
-  .text-input[type=number]::-webkit-inner-spin-button, 
-  .text-input[type=number]::-webkit-outer-spin-button { 
-    -webkit-appearance: none; 
-    margin: 0; 
-  }
-
-  .text-input:focus {
-    border-color: var(--accent);
-  }
-
-  .primary-btn {
-    width: 100%;
-    background: var(--accent);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    padding: 10px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s, transform 0.1s;
-    margin-top: 8px;
-  }
-
-  .primary-btn:hover {
-    background: #7a72ff;
-  }
-
-  .primary-btn:active {
-    transform: scale(0.98);
-  }
-
-  /* Toggle Switch */
-  .switch-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 2px 0;
-  }
-  
-  .switch-label {
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--text);
-  }
-
-  .switch {
-    position: relative;
-    display: inline-block;
-    width: 36px;
-    height: 20px;
-  }
-
-  .switch input { 
-    opacity: 0;
-    width: 0;
-    height: 0;
-  }
-
-  .slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: var(--surface2);
-    transition: .3s;
-    border-radius: 20px;
-    border: 1px solid var(--border);
-  }
-
-  .slider:before {
-    position: absolute;
-    content: "";
-    height: 14px;
-    width: 14px;
-    left: 2px;
-    bottom: 2px;
-    background-color: var(--text-muted);
-    transition: .3s;
-    border-radius: 50%;
-  }
-
-  input:checked + .slider {
-    background-color: var(--accent);
-    border-color: var(--accent);
-  }
-  
-  input:checked + .slider:before {
-    background-color: #fff;
-    transform: translateX(16px);
-  }
-
-  /* Fade in */
-  .fade-in {
-    animation: fadeIn 0.25s ease;
-  }
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(4px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  /* Hidden */
-  .hidden { display: none !important; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenRouter Balance</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    :root {
+      --bg: rgba(22, 22, 28, 0.96);
+      --surface: rgba(35, 35, 45, 0.8);
+      --surface2: rgba(45, 45, 58, 0.6);
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #e8e8f0;
+      --text-muted: #7a7a8e;
+      --accent: #6c63ff;
+      --accent-glow: rgba(108, 99, 255, 0.3);
+      --green: #34d399;
+      --yellow: #fbbf24;
+      --red: #f87171;
+      --green-dim: rgba(52, 211, 153, 0.15);
+      --yellow-dim: rgba(251, 191, 36, 0.15);
+      --red-dim: rgba(248, 113, 113, 0.15);
+    }
+
+    html,
+    body {
+      width: 340px;
+      height: 500px;
+      background: transparent;
+      font-family: 'Inter', sans-serif;
+      color: var(--text);
+      overflow: hidden;
+      border-radius: 14px;
+    }
+
+    .app {
+      width: 340px;
+      height: 500px;
+      background: var(--bg);
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      backdrop-filter: blur(40px) saturate(180%);
+      -webkit-backdrop-filter: blur(40px) saturate(180%);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.6),
+        0 0 0 0.5px rgba(255, 255, 255, 0.1) inset,
+        0 1px 0 rgba(255, 255, 255, 0.15) inset;
+    }
+
+    /* Header */
+    .header {
+      padding: 16px 18px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(255, 255, 255, 0.02);
+      -webkit-app-region: drag;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, #6c63ff, #a855f7);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      color: white;
+      font-family: 'JetBrains Mono', monospace;
+      box-shadow: 0 0 12px var(--accent-glow);
+      flex-shrink: 0;
+    }
+
+    .header-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+
+    .header-sub {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 1px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 6px;
+      -webkit-app-region: no-drag;
+    }
+
+    .icon-btn {
+      width: 26px;
+      height: 26px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      transition: all 0.15s;
+      font-size: 11px;
+    }
+
+    .icon-btn:hover {
+      background: var(--surface2);
+      color: var(--text);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .icon-btn:active {
+      transform: scale(0.93);
+    }
+
+    .icon-btn.spinning svg {
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* Content */
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .content::-webkit-scrollbar {
+      width: 3px;
+    }
+
+    .content::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .content::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+    }
+
+    /* Balance hero card */
+    .hero-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-card::before {
+      content: '';
+      position: absolute;
+      top: -30px;
+      right: -30px;
+      width: 100px;
+      height: 100px;
+      background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-label {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+    }
+
+    .hero-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1;
+      margin-bottom: 12px;
+      transition: color 0.3s;
+    }
+
+    .hero-value.green {
+      color: var(--green);
+      text-shadow: 0 0 20px rgba(52, 211, 153, 0.3);
+    }
+
+    .hero-value.yellow {
+      color: var(--yellow);
+      text-shadow: 0 0 20px rgba(251, 191, 36, 0.3);
+    }
+
+    .hero-value.red {
+      color: var(--red);
+      text-shadow: 0 0 20px rgba(248, 113, 113, 0.3);
+    }
+
+    /* Progress bar */
+    .progress-wrap {
+      margin-top: 4px;
+    }
+
+    .progress-meta {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .progress-meta span {
+      font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-muted);
+    }
+
+    .progress-bar {
+      height: 5px;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: var(--green);
+      transition: width 0.6s ease, background 0.3s;
+    }
+
+    .progress-fill.yellow {
+      background: var(--yellow);
+    }
+
+    .progress-fill.red {
+      background: var(--red);
+    }
+
+    /* Reset badge */
+    .reset-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(108, 99, 255, 0.15);
+      border: 1px solid rgba(108, 99, 255, 0.25);
+      border-radius: 5px;
+      padding: 3px 8px;
+      font-size: 10px;
+      color: #a78bfa;
+      font-family: 'JetBrains Mono', monospace;
+      margin-top: 8px;
+    }
+
+    /* Stats grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      transition: border-color 0.2s;
+    }
+
+    .stat-card:hover {
+      border-color: rgba(255, 255, 255, 0.14);
+    }
+
+    .stat-label {
+      font-size: 9.5px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 5px;
+    }
+
+    .stat-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .stat-value.accent {
+      color: var(--accent);
+    }
+
+    /* Key info */
+    .key-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .key-icon {
+      width: 28px;
+      height: 28px;
+      background: rgba(108, 99, 255, 0.1);
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 13px;
+    }
+
+    .key-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .key-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+
+    .key-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Refresh meta */
+    .refresh-meta {
+      text-align: center;
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      padding: 2px 0 6px;
+    }
+
+    /* Footer */
+    .footer {
+      padding: 10px 16px 12px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .footer-link {
+      font-size: 11px;
+      color: var(--text-muted);
+      cursor: pointer;
+      text-decoration: none;
+      transition: color 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .footer-link:hover {
+      color: var(--accent);
+    }
+
+    .last-updated {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Loading */
+    .loading-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 20px;
+    }
+
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    .loading-text {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Error */
+    .error-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 24px;
+      text-align: center;
+    }
+
+    .error-icon {
+      font-size: 32px;
+    }
+
+    .error-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--red);
+    }
+
+    .error-msg {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      line-height: 1.5;
+      word-break: break-all;
+    }
+
+    .error-hint {
+      font-size: 10px;
+      color: var(--text-muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      line-height: 1.6;
+      text-align: left;
+      width: 100%;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .error-hint code {
+      color: var(--green);
+      display: block;
+      margin-top: 4px;
+    }
+
+    /* Settings */
+    .settings-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 20px 16px;
+      gap: 16px;
+      overflow-y: auto;
+    }
+
+    .settings-state::-webkit-scrollbar {
+      width: 3px;
+    }
+
+    .settings-state::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .settings-state::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+    }
+
+    .settings-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .settings-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .settings-desc {
+      font-size: 10px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .text-input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      outline: none;
+      transition: border-color 0.2s;
+      resize: none;
+    }
+
+    .text-input[type="number"] {
+      width: 80px;
+      -moz-appearance: textfield;
+    }
+
+    .text-input[type=number]::-webkit-inner-spin-button,
+    .text-input[type=number]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    .text-input:focus {
+      border-color: var(--accent);
+    }
+
+    .primary-btn {
+      width: 100%;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      margin-top: 8px;
+    }
+
+    .primary-btn:hover {
+      background: #7a72ff;
+    }
+
+    .primary-btn:active {
+      transform: scale(0.98);
+    }
+
+    /* Toggle Switch */
+    .switch-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 2px 0;
+    }
+
+    .switch-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 36px;
+      height: 20px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: var(--surface2);
+      transition: .3s;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 2px;
+      bottom: 2px;
+      background-color: var(--text-muted);
+      transition: .3s;
+      border-radius: 50%;
+    }
+
+    input:checked+.slider {
+      background-color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    input:checked+.slider:before {
+      background-color: #fff;
+      transform: translateX(16px);
+    }
+
+    /* Fade in */
+    .fade-in {
+      animation: fadeIn 0.25s ease;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(4px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Hidden */
+    .hidden {
+      display: none !important;
+    }
+  </style>
 </head>
+
 <body>
-<div class="app">
-  <div class="header">
-    <div class="header-left">
-      <div class="logo">OR</div>
-      <div>
-        <div class="header-title">OpenRouter</div>
-        <div class="header-sub" id="key-label">Loading...</div>
-      </div>
-    </div>
-    <div class="header-actions">
-      <button class="icon-btn" id="refresh-btn" title="Refresh" onclick="doRefresh()">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <path d="M21 2v6h-6"/>
-          <path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
-          <path d="M3 22v-6h6"/>
-          <path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
-        </svg>
-      </button>
-      <button class="icon-btn" id="settings-btn" title="Settings" onclick="toggleSettings()">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="3"></circle>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-        </svg>
-      </button>
-      <button class="icon-btn" id="external-btn" title="Open OpenRouter" onclick="openExternal()">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-          <polyline points="15,3 21,3 21,9"/>
-          <line x1="10" y1="14" x2="21" y2="3"/>
-        </svg>
-      </button>
-    </div>
-  </div>
-
-  <!-- Loading -->
-  <div class="loading-state hidden" id="loading-state">
-    <div class="spinner"></div>
-    <div class="loading-text">Fetching balance...</div>
-  </div>
-
-  <!-- Error -->
-  <div class="error-state hidden" id="error-state">
-    <div class="error-icon">⚠️</div>
-    <div class="error-title">Connection Error</div>
-    <div class="error-msg" id="error-msg"></div>
-  </div>
-
-  <!-- Settings -->
-  <div class="settings-state hidden fade-in" id="settings-state">
-    <div class="settings-group">
-      <div class="settings-label">OpenRouter API Keys</div>
-      <div class="settings-desc">Enter keys line by line. Top key will be default.</div>
-      <textarea id="api-key-input" class="text-input" placeholder="sk-or-v1-...\nsk-or-v1-..." rows="3" style="font-size: 10px;"></textarea>
-    </div>
-    <div class="settings-group">
-      <div class="switch-row">
-        <div class="switch-label">Auto-failover Threshold ($)</div>
-        <input type="number" id="threshold-input" class="text-input" placeholder="0.50" step="0.10" min="0" />
-      </div>
-      <div class="settings-desc">Switch to next key when balance drops below this amount.</div>
-    </div>
-    <div class="settings-group" style="margin-top: 4px; border-top: 1px solid var(--border); padding-top: 12px;">
-      <div class="switch-row">
-        <div class="switch-label">Launch at Login</div>
-        <label class="switch">
-          <input type="checkbox" id="auto-launch-input">
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div class="settings-desc">Automatically start OpenRouter Balance when you log in to your computer.</div>
-    </div>
-    
-    <div class="settings-group" style="margin-top: 4px; border-top: 1px solid var(--border); padding-top: 12px;">
-      <div class="switch-row">
-        <div class="switch-label">Use OpenRouter for Claude Code</div>
-        <label class="switch">
-          <input type="checkbox" id="claude-code-input" onchange="setupClaude(this)">
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div class="settings-desc" id="claude-status-desc">Click toggle to switch Claude CLI mode between Anthropic and OpenRouter. It will add shell hooks automatically.</div>
-    </div>
-
-    <div class="settings-group" style="margin-top: 8px;">
-      <button class="primary-btn" onclick="saveSettings()">Save Configuration</button>
-    </div>
-  </div>
-
-  <!-- Data -->
-  <div class="content hidden" id="data-content">
-    <!-- Hero Balance -->
-    <div class="hero-card fade-in">
-      <div class="hero-label">Remaining Balance</div>
-      <div class="hero-value" id="remaining-value">$0.00</div>
-      <div class="progress-wrap">
-        <div class="progress-meta">
-          <span id="progress-used">used $0.00</span>
-          <span id="progress-limit">limit $0.00</span>
-        </div>
-        <div class="progress-bar">
-          <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+  <div class="app">
+    <div class="header">
+      <div class="header-left">
+        <div class="logo">OR</div>
+        <div>
+          <div class="header-title">OpenRouter</div>
+          <div class="header-sub" id="key-label">Loading...</div>
         </div>
       </div>
-      <div class="reset-badge" id="reset-badge">
-        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+      <div class="header-actions">
+        <button class="icon-btn" id="refresh-btn" title="Refresh" onclick="doRefresh()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M21 2v6h-6" />
+            <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+            <path d="M3 22v-6h6" />
+            <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+          </svg>
+        </button>
+        <button class="icon-btn" id="settings-btn" title="Settings" onclick="toggleSettings()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path
+              d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+            </path>
+          </svg>
+        </button>
+        <button class="icon-btn" id="external-btn" title="Open OpenRouter" onclick="openExternal()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+            <polyline points="15,3 21,3 21,9" />
+            <line x1="10" y1="14" x2="21" y2="3" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div class="loading-state hidden" id="loading-state">
+      <div class="spinner"></div>
+      <div class="loading-text">Fetching balance...</div>
+    </div>
+
+    <!-- Error -->
+    <div class="error-state hidden" id="error-state">
+      <div class="error-icon">⚠️</div>
+      <div class="error-title">Connection Error</div>
+      <div class="error-msg" id="error-msg"></div>
+    </div>
+
+    <!-- Settings -->
+    <div class="settings-state hidden fade-in" id="settings-state">
+      <div class="settings-group">
+        <div class="settings-label">OpenRouter API Keys</div>
+        <div class="settings-desc">Enter keys line by line. Top key will be default.</div>
+        <textarea id="api-key-input" class="text-input" placeholder="sk-or-v1-...\nsk-or-v1-..." rows="3"
+          style="font-size: 10px;"></textarea>
+      </div>
+      <div class="settings-group">
+        <div class="switch-row">
+          <div class="switch-label">Auto-failover Threshold ($)</div>
+          <input type="number" id="threshold-input" class="text-input" placeholder="0.50" step="0.10" min="0" />
+        </div>
+        <div class="settings-desc">Switch to next key when balance drops below this amount.</div>
+      </div>
+      <div class="settings-group" style="margin-top: 4px; border-top: 1px solid var(--border); padding-top: 12px;">
+        <div class="switch-row">
+          <div class="switch-label">Launch at Login</div>
+          <label class="switch">
+            <input type="checkbox" id="auto-launch-input">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="settings-desc">Automatically start OpenRouter Balance when you log in to your computer.</div>
+      </div>
+
+      <div class="settings-group" style="margin-top: 4px; border-top: 1px solid var(--border); padding-top: 12px;">
+        <div class="switch-row">
+          <div class="switch-label">Use OpenRouter for Claude Code</div>
+          <label class="switch">
+            <input type="checkbox" id="claude-code-input" onchange="setupClaude(this)">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="settings-desc" id="claude-status-desc">Click toggle to switch Claude CLI mode between Anthropic and
+          OpenRouter. It will add shell hooks automatically.</div>
+      </div>
+
+      <div class="settings-group" style="margin-top: 8px;">
+        <button class="primary-btn" onclick="saveSettings()">Save Configuration</button>
+      </div>
+    </div>
+
+    <!-- Data -->
+    <div class="content hidden" id="data-content">
+      <!-- Hero Balance -->
+      <div class="hero-card fade-in">
+        <div class="hero-label">Remaining Balance</div>
+        <div class="hero-value" id="remaining-value">$0.00</div>
+        <div class="progress-wrap">
+          <div class="progress-meta">
+            <span id="progress-used">used $0.00</span>
+            <span id="progress-limit">limit $0.00</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+          </div>
+        </div>
+        <div class="reset-badge" id="reset-badge">
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+          <span id="reset-text">daily reset</span>
+        </div>
+      </div>
+
+      <!-- Usage Stats -->
+      <div class="stats-grid fade-in">
+        <div class="stat-card">
+          <div class="stat-label">Today</div>
+          <div class="stat-value accent" id="usage-daily">$0.00</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">This Week</div>
+          <div class="stat-value" id="usage-weekly">$0.00</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">This Month</div>
+          <div class="stat-value" id="usage-monthly">$0.00</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">All Time</div>
+          <div class="stat-value" id="usage-total">$0.00</div>
+        </div>
+      </div>
+
+      <!-- Key Info -->
+      <div class="key-card fade-in">
+        <div class="key-icon">🔑</div>
+        <div class="key-info">
+          <div class="key-label">API Key</div>
+          <div class="key-value" id="key-name">—</div>
+        </div>
+      </div>
+
+      <div class="refresh-meta" id="refresh-time">—</div>
+    </div>
+
+    <div class="footer">
+      <a class="footer-link" onclick="openExternal()">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+          <polyline points="15,3 21,3 21,9" />
+          <line x1="10" y1="14" x2="21" y2="3" />
         </svg>
-        <span id="reset-text">daily reset</span>
-      </div>
+        openrouter.ai
+      </a>
+      <div class="last-updated" id="last-updated">—</div>
     </div>
-
-    <!-- Usage Stats -->
-    <div class="stats-grid fade-in">
-      <div class="stat-card">
-        <div class="stat-label">Today</div>
-        <div class="stat-value accent" id="usage-daily">$0.00</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">This Week</div>
-        <div class="stat-value" id="usage-weekly">$0.00</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">This Month</div>
-        <div class="stat-value" id="usage-monthly">$0.00</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">All Time</div>
-        <div class="stat-value" id="usage-total">$0.00</div>
-      </div>
-    </div>
-
-    <!-- Key Info -->
-    <div class="key-card fade-in">
-      <div class="key-icon">🔑</div>
-      <div class="key-info">
-        <div class="key-label">API Key</div>
-        <div class="key-value" id="key-name">—</div>
-      </div>
-    </div>
-
-    <div class="refresh-meta" id="refresh-time">—</div>
   </div>
 
-  <div class="footer">
-    <a class="footer-link" onclick="openExternal()">
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-        <polyline points="15,3 21,3 21,9"/>
-        <line x1="10" y1="14" x2="21" y2="3"/>
-      </svg>
-      openrouter.ai
-    </a>
-    <div class="last-updated" id="last-updated">—</div>
-  </div>
-</div>
+  <script>
+    const { ipcRenderer } = require('electron');
 
-<script>
-const { ipcRenderer } = require('electron');
-
-function fmt(val) {
-  return '$' + Number(val || 0).toFixed(2);
-}
-
-function showLoading() {
-  document.getElementById('loading-state').classList.remove('hidden');
-  document.getElementById('error-state').classList.add('hidden');
-  document.getElementById('data-content').classList.add('hidden');
-  document.getElementById('settings-state').classList.add('hidden');
-}
-
-function showError(msg) {
-  document.getElementById('loading-state').classList.add('hidden');
-  document.getElementById('error-state').classList.remove('hidden');
-  document.getElementById('data-content').classList.add('hidden');
-  document.getElementById('settings-state').classList.add('hidden');
-  document.getElementById('error-msg').textContent = msg;
-}
-
-function showData(data) {
-  document.getElementById('loading-state').classList.add('hidden');
-  document.getElementById('error-state').classList.add('hidden');
-  document.getElementById('data-content').classList.remove('hidden');
-
-  const remaining = data.limit_remaining || 0;
-  const limit = data.limit || 0;
-  const used = data.usage_daily || 0;
-  const pct = limit > 0 ? Math.min(100, (remaining / limit) * 100) : 0;
-  
-  let colorClass = 'green';
-  if (pct < 20) colorClass = 'red';
-  else if (pct < 50) colorClass = 'yellow';
-
-  // Hero
-  const heroVal = document.getElementById('remaining-value');
-  heroVal.textContent = fmt(remaining);
-  heroVal.className = 'hero-value ' + colorClass;
-
-  // Progress
-  document.getElementById('progress-used').textContent = 'used ' + fmt(used);
-  document.getElementById('progress-limit').textContent = 'limit ' + fmt(limit);
-  const fill = document.getElementById('progress-fill');
-  fill.style.width = pct + '%';
-  fill.className = 'progress-fill ' + (colorClass !== 'green' ? colorClass : '');
-
-  // Reset
-  document.getElementById('reset-text').textContent = (data.limit_reset || 'daily') + ' reset';
-
-  // Key label (Masked or Name)
-  const label = data.label || '—';
-  document.getElementById('key-label').textContent = label;
-  
-  // Show masked active key
-  let displayKey = label;
-  if (data.key) {
-    const k = data.key;
-    if (k.length > 15) {
-      displayKey = k.substring(0, 10) + '...' + k.substring(k.length - 4);
-    } else {
-      displayKey = k;
+    function fmt(val) {
+      return '$' + Number(val || 0).toFixed(2);
     }
-  }
-  document.getElementById('key-name').textContent = displayKey;
 
-  // Stats
-  document.getElementById('usage-daily').textContent = fmt(data.usage_daily);
-  document.getElementById('usage-weekly').textContent = fmt(data.usage_weekly);
-  document.getElementById('usage-monthly').textContent = fmt(data.usage_monthly);
-  document.getElementById('usage-total').textContent = fmt(data.usage);
-
-  // Time
-  const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  document.getElementById('refresh-time').textContent = `Auto-refresh every 30s`;
-  document.getElementById('last-updated').textContent = `Updated ${now}`;
-}
-
-async function toggleSettings() {
-  const settingsEl = document.getElementById('settings-state');
-  const isHidden = settingsEl.classList.contains('hidden');
-
-  if (isHidden) {
-    document.getElementById('loading-state').classList.add('hidden');
-    document.getElementById('error-state').classList.add('hidden');
-    document.getElementById('data-content').classList.add('hidden');
-    settingsEl.classList.remove('hidden');
-    document.getElementById('settings-btn').style.color = 'var(--text)';
-    
-    // Load current config
-    const config = await ipcRenderer.invoke('get-config');
-    const keys = config.apiKeys || [];
-    document.getElementById('api-key-input').value = keys.join('\n');
-    document.getElementById('threshold-input').value = typeof config.failoverThreshold === 'number' ? config.failoverThreshold : 0.50;
-    
-    document.getElementById('auto-launch-input').checked = config.autoLaunch || false;
-    document.getElementById('claude-code-input').checked = config.claudeMode === 'openrouter';
-    document.getElementById('api-key-input').focus();
-  } else {
-    // Close settings
-    document.getElementById('settings-btn').style.color = 'var(--text-muted)';
-    showLoading();
-    doRefresh();
-  }
-}
-
-function saveSettings() {
-  const keysStr = document.getElementById('api-key-input').value;
-  const apiKeys = keysStr.split('\n').map(k => k.trim()).filter(k => k.length > 0);
-  const failoverThreshold = parseFloat(document.getElementById('threshold-input').value) || 0.50;
-  
-  const autoLaunch = document.getElementById('auto-launch-input').checked;
-  
-  // Notice we are passing back the updated config shape now
-  ipcRenderer.send('save-config', { apiKeys, activeKeyIndex: 0, failoverThreshold, autoLaunch });
-  document.getElementById('settings-btn').style.color = 'var(--text-muted)';
-  showLoading();
-}
-
-ipcRenderer.on('data-update', (_, payload) => {
-  if (payload.loading) {
-    showLoading();
-  } else if (payload.error === 'API_KEY_NOT_SET') {
-    toggleSettings();
-  } else if (payload.error) {
-    showError(payload.error);
-  } else {
-    showData(payload.data);
-  }
-});
-
-let refreshBtn = document.getElementById('refresh-btn');
-function doRefresh() {
-  refreshBtn.classList.add('spinning');
-  ipcRenderer.send('refresh');
-  setTimeout(() => refreshBtn.classList.remove('spinning'), 800);
-}
-
-function openExternal() {
-  ipcRenderer.send('open-link', 'https://openrouter.ai/settings/keys');
-}
-
-async function setupClaude(checkbox) {
-  const desc = document.getElementById('claude-status-desc');
-  const originalText = desc.textContent;
-  const isOR = checkbox.checked;
-  
-  desc.textContent = "Applying configuration...";
-  desc.style.color = "var(--yellow)";
-  
-  try {
-    const keysStr = document.getElementById('api-key-input').value;
-    const apiKeys = keysStr.split('\n').map(k => k.trim()).filter(k => k.length > 0);
-    const activeKey = apiKeys[0] || '';
-    
-    if (isOR && !activeKey) {
-      throw new Error("Please enter and save an API key first.");
+    function showLoading() {
+      document.getElementById('loading-state').classList.remove('hidden');
+      document.getElementById('error-state').classList.add('hidden');
+      document.getElementById('data-content').classList.add('hidden');
+      document.getElementById('settings-state').classList.add('hidden');
     }
-    
-    await ipcRenderer.invoke('setup-claude', { 
-      mode: isOR ? 'or' : 'ant',
-      apiKey: activeKey
+
+    function showError(msg) {
+      document.getElementById('loading-state').classList.add('hidden');
+      document.getElementById('error-state').classList.remove('hidden');
+      document.getElementById('data-content').classList.add('hidden');
+      document.getElementById('settings-state').classList.add('hidden');
+      document.getElementById('error-msg').textContent = msg;
+    }
+
+    function showData(data) {
+      document.getElementById('loading-state').classList.add('hidden');
+      document.getElementById('error-state').classList.add('hidden');
+      document.getElementById('data-content').classList.remove('hidden');
+
+      const remaining = data.limit_remaining || 0;
+      const limit = data.limit || 0;
+      const used = data.usage_daily || 0;
+      const pct = limit > 0 ? Math.min(100, (remaining / limit) * 100) : 0;
+
+      let colorClass = 'green';
+      if (pct < 20) colorClass = 'red';
+      else if (pct < 50) colorClass = 'yellow';
+
+      // Hero
+      const heroVal = document.getElementById('remaining-value');
+      heroVal.textContent = fmt(remaining);
+      heroVal.className = 'hero-value ' + colorClass;
+
+      // Progress
+      document.getElementById('progress-used').textContent = 'used ' + fmt(used);
+      document.getElementById('progress-limit').textContent = 'limit ' + fmt(limit);
+      const fill = document.getElementById('progress-fill');
+      fill.style.width = pct + '%';
+      fill.className = 'progress-fill ' + (colorClass !== 'green' ? colorClass : '');
+
+      // Reset
+      document.getElementById('reset-text').textContent = (data.limit_reset || 'daily') + ' reset';
+
+      // Key label (Masked or Name)
+      const label = data.label || '—';
+      document.getElementById('key-label').textContent = label;
+
+      // Show masked active key
+      let displayKey = label;
+      if (data.key) {
+        const k = data.key;
+        if (k.length > 15) {
+          displayKey = k.substring(0, 10) + '...' + k.substring(k.length - 4);
+        } else {
+          displayKey = k;
+        }
+      }
+      document.getElementById('key-name').textContent = displayKey;
+
+      // Stats
+      document.getElementById('usage-daily').textContent = fmt(data.usage_daily);
+      document.getElementById('usage-weekly').textContent = fmt(data.usage_weekly);
+      document.getElementById('usage-monthly').textContent = fmt(data.usage_monthly);
+      document.getElementById('usage-total').textContent = fmt(data.usage);
+
+      // Time
+      const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      document.getElementById('refresh-time').textContent = `Auto-refresh every 30s`;
+      document.getElementById('last-updated').textContent = `Updated ${now}`;
+    }
+
+    async function toggleSettings() {
+      const settingsEl = document.getElementById('settings-state');
+      const isHidden = settingsEl.classList.contains('hidden');
+
+      if (isHidden) {
+        document.getElementById('loading-state').classList.add('hidden');
+        document.getElementById('error-state').classList.add('hidden');
+        document.getElementById('data-content').classList.add('hidden');
+        settingsEl.classList.remove('hidden');
+        document.getElementById('settings-btn').style.color = 'var(--text)';
+
+        // Load current config
+        const config = await ipcRenderer.invoke('get-config');
+        const keys = config.apiKeys || [];
+        document.getElementById('api-key-input').value = keys.join('\n');
+        document.getElementById('threshold-input').value = typeof config.failoverThreshold === 'number' ? config.failoverThreshold : 0.50;
+
+        document.getElementById('auto-launch-input').checked = config.autoLaunch || false;
+        document.getElementById('claude-code-input').checked = config.claudeMode === 'openrouter';
+        document.getElementById('api-key-input').focus();
+      } else {
+        // Close settings
+        document.getElementById('settings-btn').style.color = 'var(--text-muted)';
+        showLoading();
+        doRefresh();
+      }
+    }
+
+    function saveSettings() {
+      const keysStr = document.getElementById('api-key-input').value;
+      const apiKeys = keysStr.split('\n').map(k => k.trim()).filter(k => k.length > 0);
+      const failoverThreshold = parseFloat(document.getElementById('threshold-input').value) || 0.50;
+
+      const autoLaunch = document.getElementById('auto-launch-input').checked;
+
+      // Notice we are passing back the updated config shape now
+      ipcRenderer.send('save-config', { apiKeys, activeKeyIndex: 0, failoverThreshold, autoLaunch });
+      document.getElementById('settings-btn').style.color = 'var(--text-muted)';
+      showLoading();
+    }
+
+    ipcRenderer.on('data-update', (_, payload) => {
+      if (payload.loading) {
+        showLoading();
+      } else if (payload.error === 'API_KEY_NOT_SET') {
+        toggleSettings();
+      } else if (payload.error) {
+        showError(payload.error);
+      } else {
+        showData(payload.data);
+      }
     });
-    
-    desc.textContent = "Success! Please restart your terminal to apply changes.";
-    desc.style.color = "var(--green)";
-  } catch (err) {
-    console.error(err);
-    checkbox.checked = !isOR; // Revert toggle
-    desc.textContent = "Error: " + (err.message || err);
-    desc.style.color = "var(--red)";
-  }
-  
-  setTimeout(() => {
-    desc.textContent = "Click toggle to switch Claude CLI mode between Anthropic and OpenRouter. It will add shell hooks automatically.";
-    desc.style.color = "var(--text-muted)";
-  }, 4000);
-}
 
-// Start loading
-showLoading();
-</script>
+    let refreshBtn = document.getElementById('refresh-btn');
+    function doRefresh() {
+      refreshBtn.classList.add('spinning');
+      ipcRenderer.send('refresh');
+      setTimeout(() => refreshBtn.classList.remove('spinning'), 800);
+    }
+
+    function openExternal() {
+      ipcRenderer.send('open-link', 'https://openrouter.ai/settings/keys');
+    }
+
+    async function setupClaude(checkbox) {
+      const desc = document.getElementById('claude-status-desc');
+      const originalText = desc.textContent;
+      const isOR = checkbox.checked;
+
+      desc.textContent = "Applying configuration...";
+      desc.style.color = "var(--yellow)";
+
+      try {
+        const keysStr = document.getElementById('api-key-input').value;
+        const apiKeys = keysStr.split('\n').map(k => k.trim()).filter(k => k.length > 0);
+        const activeKey = apiKeys[0] || '';
+
+        if (isOR && !activeKey) {
+          throw new Error("Please enter and save an API key first.");
+        }
+
+        await ipcRenderer.invoke('setup-claude', {
+          mode: isOR ? 'or' : 'ant',
+          apiKey: activeKey
+        });
+
+        desc.textContent = "Success! Please restart your terminal to apply changes.";
+        desc.style.color = "var(--green)";
+      } catch (err) {
+        console.error(err);
+        checkbox.checked = !isOR; // Revert toggle
+        desc.textContent = "Error: " + (err.message || err);
+        desc.style.color = "var(--red)";
+      }
+
+      setTimeout(() => {
+        desc.textContent = "Click toggle to switch Claude CLI mode between Anthropic and OpenRouter. It will add shell hooks automatically.";
+        desc.style.color = "var(--text-muted)";
+      }, 4000);
+    }
+
+    // Start loading
+    showLoading();
+  </script>
 </body>
+
 </html>
