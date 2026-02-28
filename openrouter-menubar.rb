@@ -9,6 +9,13 @@ cask "openrouter-menubar" do
 
   app "OpenRouter Balance.app"
 
+  postflight do
+    system_command "xattr",
+                   args: ["-cr", "#{appdir}/OpenRouter Balance.app"],
+                   sudo: true,
+                   print_stderr: false
+  end
+
   zap trash: [
     "~/Library/Application Support/openrouter-menubar",
     "~/Library/Preferences/com.openrouter.menubar.plist",
