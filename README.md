@@ -51,9 +51,19 @@ Clicking opens a beautifully designed popup with a dark glassmorphism theme:
 
 ## 💻 Installation & Development
 
+### Using Homebrew (Recommended)
+
+You can easily install the pre-built application using Homebrew:
+
+```bash
+brew install --cask https://raw.githubusercontent.com/volkankurt2/openrouter-menubar/main/openrouter-menubar.rb
+```
+
+### Manual Development Setup
+
 ```bash
 # 1. Clone the repository
-git clone https://github.com/yourusername/openrouter-menubar.git
+git clone https://github.com/volkankurt2/openrouter-menubar.git
 cd openrouter-menubar
 
 # 2. Install dependencies
