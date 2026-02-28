@@ -127,7 +127,7 @@ function fetchBalance(keyToUse) {
 
 function updateTrayTitle(data) {
   if (!tray) return;
-  
+
   if (!data) {
     tray.setTitle(' OR');
     return;
@@ -136,7 +136,7 @@ function updateTrayTitle(data) {
   const remaining = data.limit_remaining;
   const limit = data.limit;
   const pct = limit > 0 ? Math.round((remaining / limit) * 100) : 0;
-  
+
   // Color indicator via emoji
   let indicator = '🟢';
   if (pct < 20) indicator = '🔴';
@@ -151,7 +151,7 @@ function createTray() {
   const icon = nativeImage.createFromDataURL(
     'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAdgAAAHYBTnsmCAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAFCSURBVDiNpZM9SwNBEIafvYuJMUQUFAsRBAWxsLCwsLCwsBD8CRYWFhYWFhYWFhYWFp6FhYWFhYWFhYWFhYWFhYWFhRBNJJf7cne7O4OFkJDLXRIcmGLYeeb9mN1ZMcasaq3fReSwrutaRMSJyI2IfALAzG4BqOo7gMuyLN+894iIp2kaExG11g4AICJ2uVwuIiIiIiIiWmtFRERERGw2m1UA2O/3e8MwDABgrR0A0HUdAKiqCgAopQAASimllFJKKaWUUkoppZRSSimllFJKKaWUUkoppZRSSim1UkoppZRSSim1UkoppZRSSim1UkoppZRSSim1UkoppZRSSim1UkoppZRSSim1UkoppZRSSim1UkoppZRSSim1UkoppdRKSimllFJKqZVSSqmVUkqplVJKKaWUUkqplVJKKaVWSqmVUkqplVJKqZX6B/AHAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAv4Bv9QPLe4LrVcAAAAASUVORK5CYII='
   );
-  
+
   tray = new Tray(icon.resize({ width: 16, height: 16 }));
   tray.setTitle(' OR');
 
@@ -171,7 +171,7 @@ function createTray() {
 function createPopupWindow() {
   popupWindow = new BrowserWindow({
     width: 340,
-    height: 500,
+    height: 580,
     show: false,
     frame: false,
     resizable: false,
@@ -188,7 +188,7 @@ function createPopupWindow() {
   });
 
   popupWindow.loadFile('popup.html');
-  
+
   popupWindow.on('blur', () => {
     popupWindow.hide();
   });
@@ -234,14 +234,14 @@ async function triggerFailover(currentIndex, keys) {
     const configPath = getConfigPath();
     const existing = getConfig();
     fs.writeFileSync(configPath, JSON.stringify({ ...existing, activeKeyIndex: nextIndex }, null, 2));
-    
+
     // Switch the environment if claude mode is active
     let claudeMode = '';
     const modePath = path.join(os.homedir(), '.claude_mode');
     if (fs.existsSync(modePath)) {
       claudeMode = fs.readFileSync(modePath, 'utf8').trim();
     }
-    
+
     if (claudeMode === 'openrouter') {
       const scriptPath = path.join(__dirname, 'switch-claude-script.sh');
       exec(`bash "${scriptPath}" or "${keys[nextIndex]}"`);
@@ -266,7 +266,7 @@ async function doRefresh() {
     let data = await fetchBalance();
     const threshold = getFailoverThreshold();
     const keys = getApiKeys();
-    
+
     if (data.limit_remaining !== undefined && data.limit_remaining < threshold && keys.length > 1) {
       const currentIndex = getActiveKeyIndex();
       const failoverDone = await triggerFailover(currentIndex, keys);
@@ -275,7 +275,7 @@ async function doRefresh() {
         data = await fetchBalance();
       }
     }
-    
+
     lastData = data;
     updateTrayTitle(data);
     if (popupWindow?.isVisible()) {
@@ -333,15 +333,15 @@ if (!gotTheLock) {
   });
 
   ipcMain.on('save-config', (_, { apiKeys, activeKeyIndex, failoverThreshold, autoLaunch }) => {
-    saveConfig({ 
+    saveConfig({
       openRouterApiKeys: apiKeys,
       activeKeyIndex: activeKeyIndex || 0,
       failoverThreshold: failoverThreshold || 0.50,
-      autoLaunch 
+      autoLaunch
     });
-    
+
     applyAutoLaunch(autoLaunch);
-    
+
     if (apiKeys && apiKeys.length > 0) {
       doRefresh();
     } else {
@@ -356,7 +356,7 @@ if (!gotTheLock) {
   ipcMain.handle('setup-claude', async (_, { mode, apiKey }) => {
     return new Promise((resolve, reject) => {
       const scriptPath = path.join(__dirname, 'switch-claude-script.sh');
-      
+
       // First setup the shell files
       exec(`bash "${scriptPath}" setup`, (error, stdout, stderr) => {
         if (error) {
@@ -387,10 +387,10 @@ if (!gotTheLock) {
 
   app.whenReady().then(() => {
     app.dock?.hide(); // Hide from dock on macOS
-    
+
     // Apply auto-launch setting on startup
     applyAutoLaunch(getAutoLaunch());
-    
+
     createTray();
     createPopupWindow();
     doRefresh();
