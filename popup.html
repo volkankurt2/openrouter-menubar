@@ -449,7 +449,12 @@
     flex-direction: column;
     padding: 20px 16px;
     gap: 16px;
+    overflow-y: auto;
   }
+
+  .settings-state::-webkit-scrollbar { width: 3px; }
+  .settings-state::-webkit-scrollbar-track { background: transparent; }
+  .settings-state::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
 
   .settings-group {
     display: flex;
