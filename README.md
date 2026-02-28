@@ -18,6 +18,7 @@ Menu bar:  $10.26   ←  remaining balance, color-coded
 ```
 
 Clicking opens a beautifully designed popup with a dark glassmorphism theme:
+
 - Remaining balance (green → yellow → red based on percentage)
 - Progress bar against your daily limit
 - Daily / weekly / monthly / all-time usage breakdown
@@ -28,7 +29,7 @@ Clicking opens a beautifully designed popup with a dark glassmorphism theme:
 
 ## 📸 Preview
 
-> *(Add a screenshot here after first run — Command+Shift+4 to capture the popup)*
+> <img src="screenshot/img.png" width="340" alt="Popup View"/> &nbsp;&nbsp;&nbsp; <img src="screenshot/img_1.png" width="340" alt="Settings View"/>
 
 ---
 
